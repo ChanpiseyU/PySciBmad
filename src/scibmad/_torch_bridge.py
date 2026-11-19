@@ -25,6 +25,11 @@ def _resolve_backend(name):
             "DifferentiationInterface.AutoGTPSA()"
         )
 
+    if name == "reversediff":
+        return jl.seval(
+        "   DifferentiationInterface.AutoReverseDiff()"
+    )
+
     raise ValueError(
         f"Unsupported AD backend: {name!r}. "
         "Supported backends: forwarddiff, gtpsa"
@@ -177,16 +182,16 @@ class _JuliaFunction(torch.autograd.Function): # Custom torch.autograd.Function
                     ])
             else:
                 if ctx.is_vector_output:
-                    jac_np = np.array(
-                        jl.scibmad_jacobian_arg(
+                    grad = np.asarray(
+                        jl.scibmad_vjp_arg(
                             ctx.julia_func,
                             backend,
                             ctx.jl_args,
                             tensor_arg_index + 1,
                             jl_x,
+                            grad_output_flat,
                         )
                     )
-                    grad = jac_np.T @ grad_output_flat
                 else:
                     grad = np.array(
                         jl.scibmad_gradient_arg(

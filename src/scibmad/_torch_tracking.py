@@ -10,7 +10,10 @@ from ._wrappers import unwrap
 from ._torch_bridge import _JuliaTorchCallable
 
 import torch
+import numpy as np
 
+from ._torch_bridge import _JuliaTorchCallable
+from ._runtime import jl
 
 _tracking_path = os.path.join(
     os.path.dirname(__file__),
@@ -85,6 +88,16 @@ def torch_track(
 
     if not parameters:
         raise ValueError("parameters must not be empty")
+    # reverse diff not working for quad tracking
+    if backend.lower() == "reversediff" and any(
+        value.requires_grad
+        for _, _, value in parameters
+    ):
+        raise ValueError(
+            "ReverseDiff differentiation of beamline parameters "
+            "is not currently supported by BeamTracking. "
+            "Use backend='forwarddiff' or backend='gtpsa' instead."
+        )
 
     indices = []
     names = []
@@ -191,4 +204,43 @@ class TorchTracker:
             backend=self.backend,
             **kwargs,
         )
+
+def test_vjp_against_analytical_gradient():
+    # Define a Julia function with vector output
+    jl.seval("""
+    function vjp_test(x)
+        return [x[1]^2, x[1]*x[2], x[2]^2]
+    end
+    """)
+
+    f = _JuliaTorchCallable(jl.vjp_test, backend="forwarddiff")
+
+    x = torch.tensor(
+        [2.0, 3.0],
+        dtype=torch.float64,
+        requires_grad=True,
+    )
+
+    weights = torch.tensor(
+        [1.0, 2.0, 3.0],
+        dtype=torch.float64,
+    )
+
+    y = f(x)
+    loss = (y * weights).sum()
+    loss.backward()
+
+    # L = x1^2 + 2*x1*x2 + 3*x2^2
+    # dL/dx1 = 2*x1 + 2*x2 = 10
+    # dL/dx2 = 2*x1 + 6*x2 = 22
+
+    expected = np.array([10.0, 22.0])
+
+    np.testing.assert_allclose(
+        x.grad.detach().numpy(),
+        expected,
+        rtol=1e-8,
+        atol=1e-10,
+    )
+
 

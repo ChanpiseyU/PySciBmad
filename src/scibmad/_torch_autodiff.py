@@ -4,6 +4,7 @@ AUTODIFF_JULIA_CODE = '''
         import ForwardDiff
         using DifferentiationInterface: gradient, jacobian, derivative
         import GTPSA
+        import ReverseDiff
 
         scibmad_native(x::AbstractArray) = Array(x)
         scibmad_native(x) = x

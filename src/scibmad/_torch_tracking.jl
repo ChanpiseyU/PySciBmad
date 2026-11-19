@@ -1,5 +1,7 @@
 using SciBmad
 import GTPSA
+import ReverseDiff 
+import ForwardDiff
 
 # Track through a beamline with multiple differentiable
 # quadrupole strengths.
@@ -19,7 +21,7 @@ function torch_track_parameters(
      length(parameter_names) == n) ||
         throw(ArgumentError("Parameter lengths must match"))
 
-    # Copy the existing beamline elements.
+    # Copy the existing beamline elements
     new_elements = deepcopy(collect(Any, elements))
 
     # Apply each differentiable parameter.
@@ -48,7 +50,14 @@ function torch_track_parameters(
         throw(ArgumentError("At least one particle is required"))
 
     # Convert flattened coordinates into an N x 6 matrix.
-    v = permutedims(reshape(T.(coords), 6, n_particles))
+
+    coord_values = if coords isa ReverseDiff.TrackedArray
+        coords
+    else
+        T.(coords)
+    end
+
+    v = permutedims(reshape(coord_values, (6, n_particles)))
 
     bunch = SciBmad.Bunch(
         v;
