@@ -145,7 +145,7 @@ sb.unwrap, sb.wrap
 
 ### 18 GeV ESR Closed-Orbit Optimization
 
-The [ESR closed-orbit example](examples/esr_closed_orbit.py)
+The [ESR closed-orbit example](examples/esr_closed_orbit_example.py)
 demonstrates differentiable particle tracking and gradient-based
 optimization using PySciBmad, PyTorch, and ReverseDiff.
 
