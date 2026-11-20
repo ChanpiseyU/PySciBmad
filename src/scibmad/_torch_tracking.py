@@ -70,25 +70,24 @@ def torch_track(
 
     # Preserve the previous single-quadrupole API.
     if parameters is None:
-        if quadrupole_index is None or kn1 is None:
+        if quadrupole_index is None and kn1 is None:
+            parameters = []
+        elif quadrupole_index is None or kn1 is None:
             raise ValueError(
-                "Provide parameters or quadrupole_index and kn1"
+                "Provide both quadrupole_index and kn1"
             )
-
-        if not 0 <= quadrupole_index < len(elements):
-            raise IndexError("quadrupole_index is out of range")
-
-        parameters = [
-            (elements[quadrupole_index], "Kn1", kn1)
-        ]
+        else:
+            if not 0 <= quadrupole_index < len(elements):
+                raise IndexError("quadrupole_index is out of range")
+            parameters = [
+                (elements[quadrupole_index], "Kn1", kn1)
+            ]
     elif quadrupole_index is not None or kn1 is not None:
         raise ValueError(
             "Do not combine parameters with legacy arguments"
         )
 
-    if not parameters:
-        raise ValueError("parameters must not be empty")
-    # reverse diff not working for quad tracking
+    # Error for ReverseDiff fail through quad tracking
     if backend.lower() == "reversediff" and any(
         value.requires_grad
         for _, _, value in parameters
@@ -151,7 +150,11 @@ def torch_track(
         values.append(value.reshape(()))
 
     # Stack scalar tensors into one differentiable vector.
-    strengths = torch.stack(values)
+    strengths = (
+        torch.stack(values)
+        if values
+        else v0.new_empty((0,))
+    )
 
     # Convert Python elements and indices to Julia arrays.
     jl_elements = glue.to_any_vector(
